@@ -1,26 +1,22 @@
 const zh = {
   // Header
-  "app.title": "Claude Agent Starter",
-  "app.subtitle": "基于 EdgeOne Makers 运行，支持沙箱工具、会话记忆和可观测性",
+  "app.title": "Agnes AI 智能助手",
+  "app.subtitle": "基于 EdgeOne Makers 运行，使用 Agnes 2.0 Flash 模型，支持会话记忆和流式响应",
 
   // Empty state
-  "empty.title": "Claude Agent Starter",
-  "empty.hint": "我是运行在 EdgeOne 上的 Claude 助手。我可以调用沙箱工具、持久化会话记忆，并帮助你进行调试、文件管理、代码执行和网页浏览。",
-  "empty.features": "沙箱工具 · 会话记忆 · 可观测性",
+  "empty.title": "Agnes AI 智能助手",
+  "empty.hint": "我是基于 Agnes 2.0 Flash 的 AI 助手，运行在 EdgeOne 上。我可以帮助你回答问题、编写代码、分析数据和创意任务。",
+  "empty.features": "Agnes 2.0 Flash · 会话记忆 · 流式响应",
 
   // Chat input
   "chat.placeholder": "输入消息...  ⏎ 发送 · Shift+⏎ 换行",
-  "chat.hint": "由 Claude Agent SDK + EdgeOne Makers 驱动 · 仅供演示",
+  "chat.hint": "由 Agnes 2.0 Flash + EdgeOne Makers 驱动",
 
   // Preset questions
-  "preset.1": "使用终端命令检查当前系统时间和操作系统版本。",
-  "preset.2": "创建 /tmp/fib.py，写入计算斐波那契数列前 10 项的 Python 代码并执行，将结果打印出来。",
-  "preset.4": "访问 https://edgeone.ai 并总结页面内容。",
-  "preset.screenshotEdgeOne": "截取 edgeone.ai 的网页图片。",
-  "preset.skill.sandboxAlgorithms": "计算斐波那契数列前 20 个，并给出执行结果。",
-
-  // Skill indicators
-  "skill.sandboxAlgorithms": "沙箱算法执行",
+  "preset.1": "你能做什么？介绍一下你的能力。",
+  "preset.2": "写一个 Python 函数，计算斐波那契数列的前 10 项。",
+  "preset.4": "解释 REST 和 GraphQL API 的区别。",
+  "preset.screenshotEdgeOne": "EdgeOne Makers 是什么？",
 
   // Tool indicators
   "tool.commands": "命令行",

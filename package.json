@@ -1,7 +1,7 @@
 {
-  "name": "claude-agent-starter",
+  "name": "agnes-ai-agent",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,9 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.144",
-    "@anthropic-ai/sdk": "^0.97.0",
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "dotenv": "^16.4.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

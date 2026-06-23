@@ -1,26 +1,22 @@
 const en = {
   // Header
-  "app.title": "Claude Agent Starter",
-  "app.subtitle": "Running on EdgeOne Makers with sandbox tools, session memory & observability",
+  "app.title": "Agnes AI Agent",
+  "app.subtitle": "Running on EdgeOne Makers with Agnes 2.0 Flash, session memory & streaming",
 
   // Empty state
-  "empty.title": "Claude Agent Starter",
-  "empty.hint": "I'm a Claude assistant running on EdgeOne. I can call sandbox tools, persist session memory, and help you with debugging, file management, code execution, and web browsing.",
-  "empty.features": "Sandbox Tools · Store Memory · Observability",
+  "empty.title": "Agnes AI Agent",
+  "empty.hint": "I'm an AI assistant powered by Agnes 2.0 Flash, running on EdgeOne. I can help you with answering questions, writing code, analyzing data, and creative tasks.",
+  "empty.features": "Agnes 2.0 Flash · Session Memory · Streaming",
 
   // Chat input
   "chat.placeholder": "Type a message...  ⏎ Send · Shift+⏎ Newline",
-  "chat.hint": "Powered by Claude Agent SDK + EdgeOne Makers · Demo only",
+  "chat.hint": "Powered by Agnes 2.0 Flash + EdgeOne Makers",
 
   // Preset questions
-  "preset.1": "Use terminal commands to check the current system time and OS version.",
-  "preset.2": "Create /tmp/fib.py, write Python code to calculate the first 10 Fibonacci numbers, execute it, and print the result.",
-  "preset.4": "Visit https://edgeone.ai and summarize the page content.",
-  "preset.screenshotEdgeOne": "Take a screenshot of edgeone.ai.",
-  "preset.skill.sandboxAlgorithms": "Calculate the first 20 Fibonacci numbers and provide the execution result.",
-
-  // Skill indicators
-  "skill.sandboxAlgorithms": "Sandbox Algorithms",
+  "preset.1": "What can you do? Tell me about your capabilities.",
+  "preset.2": "Write a Python function to calculate the first 10 Fibonacci numbers.",
+  "preset.4": "Explain the difference between REST and GraphQL APIs.",
+  "preset.screenshotEdgeOne": "What is EdgeOne Makers?",
 
   // Tool indicators
   "tool.commands": "Commands",

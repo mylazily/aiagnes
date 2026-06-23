@@ -1,31 +1,27 @@
 /**
- * AI Gateway debug configuration.
+ * Agnes AI API configuration.
  *
- * Claude Agent SDK subprocess still reads Anthropic protocol env vars,
- * so we map AI_GATEWAY_* to ANTHROPIC_* for the SDK.
- *
- * All functions accept context.env as parameter instead of reading process.env directly.
+ * Uses OpenAI-compatible API protocol.
+ * Base URL: https://apihub.agnes-ai.com/v1
+ * Model: agnes-2.0-flash
  */
 
-const DEFAULT_MODEL = process.env.AI_GATEWAY_MODEL || '@makers/deepseek-v4-flash';
+const DEFAULT_MODEL = process.env.AGNES_MODEL || 'agnes-2.0-flash';
+const DEFAULT_BASE_URL = process.env.AGNES_BASE_URL || 'https://apihub.agnes-ai.com/v1';
+const DEFAULT_API_KEY = process.env.AGNES_API_KEY || '';
 
 export function resolveModelName(env: Record<string, string | undefined>): string {
-  return env.AI_GATEWAY_MODEL || DEFAULT_MODEL;
+  return env.AGNES_MODEL || DEFAULT_MODEL;
 }
 
-export function collectGatewayEnv(env: Record<string, string | undefined>): Record<string, string> {
-  const result: Record<string, string> = {};
-  const model = env.AI_GATEWAY_MODEL || DEFAULT_MODEL;
-  const baseUrl = env.AI_GATEWAY_BASE_URL;
-  const apiKey = env.AI_GATEWAY_API_KEY;
-  const smallModel = env.AI_GATEWAY_SMALL_MODEL || model;
+export function resolveBaseUrl(env: Record<string, string | undefined>): string {
+  return env.AGNES_BASE_URL || DEFAULT_BASE_URL;
+}
 
-  if (baseUrl) result.ANTHROPIC_BASE_URL = baseUrl;
-  if (apiKey) result.ANTHROPIC_API_KEY = apiKey;
-  if (smallModel) result.ANTHROPIC_SMALL_FAST_MODEL = smallModel;
-  if (env.ANTHROPIC_CUSTOM_HEADERS) {
-    result.ANTHROPIC_CUSTOM_HEADERS = env.ANTHROPIC_CUSTOM_HEADERS;
-  }
+export function resolveApiKey(env: Record<string, string | undefined>): string {
+  return env.AGNES_API_KEY || DEFAULT_API_KEY;
+}
 
-  return result;
+export function resolveSmallModel(env: Record<string, string | undefined>): string {
+  return env.AGNES_SMALL_MODEL || resolveModelName(env);
 }

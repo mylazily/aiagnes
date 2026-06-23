@@ -4,142 +4,32 @@
  *
  * File path agents/chat/index.ts maps to **POST /chat**
  *
+ * Uses Agnes AI (OpenAI-compatible API) instead of Claude Agent SDK.
+ * Streams responses via SSE to the frontend.
+ *
  * context convention:
  *   context.request.body    — object, request body
  *   context.request.signal  — AbortSignal, set when /stop is called
  *   context.conversation_id — conversation ID
- *   context.store           — store adapter (appendMessage / getMessages / claudeSessionStore)
+ *   context.store           — store adapter (appendMessage / getMessages)
  *   context.tools           — EdgeOne platform sandbox toolkit
  */
 
-import { createSdkMcpServer, getSessionInfo } from '@anthropic-ai/claude-agent-sdk';
-import { resolveModelName, collectGatewayEnv } from '../_model';
+import { resolveModelName, resolveBaseUrl, resolveApiKey } from '../_model';
 import { createLogger } from '../_logger';
 import { createChatStream } from './_stream';
 
 const logger = createLogger('chat');
 
 const SYSTEM_PROMPT =
-  'You are an EdgeOne Makers Claude Agent SDK starter example: an out-of-the-box Agent template that helps developers quickly run through and validate platform capabilities.\n' +
-  'When introducing yourself, clearly say that you are a demo Agent built with Claude Agent SDK on EdgeOne Makers, designed to showcase tool calling, streaming responses, and session memory for developers.\n' +
-  'You can use the EdgeOne platform tools listed below, plus project skills exposed by the Claude Agent SDK.\n\n' +
-  'Available tools:\n' +
-  '- commands: execute safe shell commands in the sandbox (e.g. date, ls, uname).\n' +
-  '- files: read, write, list, makeDir, exists, and remove files inside the sandbox.\n' +
-  '  Parameters: op is required; path is required for most ops; content is required for write.\n' +
-  '- code_interpreter: run code in an isolated interpreter.\n' +
-  '  Parameters: language (for example "python") and code.\n' +
-  '- browser: fetch pages or interact with web pages by screenshot, click, type, or evaluate.\n' +
-  '  Parameters: op is required; use url for fetch; use selector, text, or script when needed.\n\n' +
-  'Available project skills:\n' +
-  '- sandbox-algorithms: use this when the user asks to compute or verify deterministic algorithmic results such as Fibonacci sequences, factorials, primes, sorting, combinations, or explicitly asks for sandbox-algorithms.\n\n' +
-  'Filesystem boundary:\n' +
-  '- Use Claude Code Read only for project skill resources under .claude/skills, such as SKILL.md references or scripts needed by a loaded skill.\n' +
-  '- Use the EdgeOne files tool for user workspace files, temporary files, generated artifacts, and all non-skill file operations.\n\n' +
-  'Tool-use rules:\n' +
-  '1. Use a tool only when it is necessary to answer the user concretely or demonstrate a platform capability.\n' +
-  '2. Call tools one at a time and wait for each result before deciding the next step.\n' +
-  '3. Never invent, simulate, or paraphrase tool results. If a tool result is unavailable, say so.\n' +
-  '4. If a tool call fails, do not repeat it blindly and do not switch to unrelated operations.\n' +
-  '   Briefly explain the failure, adjust the parameters only if the fix is clear, otherwise ask the user for guidance.\n' +
-  '5. Do not perform destructive file or shell operations unless the user explicitly asks for them.\n' +
-  '6. If a tool returns an image or screenshot, do not include base64 strings, data:image URLs, or Markdown image links in your text. Briefly say the image is shown in the chat.\n' +
-  '7. If the task can be answered without tools or skills, answer directly and keep the response concise.\n' +
-  'When the user explicitly names a project skill, load that skill before doing the task.';
-
-function normalizeUuid(value: string): string | null {
-  const trimmed = value.trim().toLowerCase();
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(trimmed)
-    ? trimmed
-    : null;
-}
-
-async function resolveClaudeSessionBinding(
-  sessionStore: any,
-  conversationId: string,
-  cwd: string,
-): Promise<{ sessionId?: string; resume?: string }> {
-  const sessionId = normalizeUuid(conversationId);
-  if (!sessionId) {
-    logger.log(`[session] skip SDK session binding: invalid conversationId=${conversationId}`);
-    return {};
-  }
-
-  try {
-    // `dir` is load-bearing even when going through sessionStore: getSessionInfo
-    // derives the project key from `dir`, and the EdgeOne SessionStore namespaces
-    // its blob keys by `projectKey`. Drop `dir` and load() never finds a match.
-    const info = await getSessionInfo(sessionId, { dir: cwd, sessionStore });
-    if (info) {
-      logger.log(`[session] resume Claude SDK sessionId=${sessionId}`);
-      return { resume: sessionId };
-    }
-    logger.log(`[session] create Claude SDK sessionId=${sessionId}`);
-  } catch (e) {
-    logger.error('[session] failed to inspect sessionStore for resume:', e);
-  }
-
-  return { sessionId };
-}
-
-function buildAgentOptions(opts?: {
-  claudeSessionStore?: any;
-  mcpServer?: any;
-  mcpServerName?: string;
-  allowedTools?: string[];
-  env?: Record<string, string | undefined>;
-  sessionId?: string;
-  resume?: string;
-}) {
-  const ctxEnv = opts?.env ?? {};
-  const cwd = process.cwd();
-  const allowedTools = opts?.allowedTools ?? [];
-  const skillReadAllowRules = [
-    'Read(.claude/skills/**)',
-    `Read(${cwd}/.claude/skills/**)`,
-  ];
-  const options: Record<string, any> = {
-    model: resolveModelName(ctxEnv),
-    systemPrompt: SYSTEM_PROMPT,
-    cwd,
-    // Keep Claude Code's built-in tools narrowly scoped: Skill loads project
-    // skills, and Read may only access skill resources under .claude/skills.
-    // EdgeOne sandbox tools are exposed separately through MCP below.
-    tools: ['Skill', 'Read'],
-    allowedTools,
-    settingSources: ["project"],
-    skills: "all",
-    permissionMode: 'bypassPermissions',
-    settings: {
-      permissions: {
-        allow: skillReadAllowRules,
-        defaultMode: 'dontAsk',
-        disableBypassPermissionsMode: 'disable',
-      },
-    },
-    maxTurns: 5,
-    env: {
-      ...ctxEnv,
-      ...collectGatewayEnv(ctxEnv),
-    },
-    // Forward Claude CLI stderr to logs for easier debugging.
-    stderr: (line: string) => {
-      logger.error('[claude-cli stderr]', line);
-    },
-  };
-  if (opts?.claudeSessionStore) {
-    options.sessionStore = opts.claudeSessionStore;
-  }
-  if (opts?.resume) {
-    options.resume = opts.resume;
-  } else if (opts?.sessionId) {
-    options.sessionId = opts.sessionId;
-  }
-  if (opts?.mcpServer && opts?.mcpServerName) {
-    options.mcpServers = { [opts.mcpServerName]: opts.mcpServer };
-  }
-  return options;
-}
+  'You are a helpful AI assistant powered by Agnes 2.0 Flash, built on EdgeOne Makers.\n' +
+  'When introducing yourself, clearly say that you are an AI assistant built with Agnes 2.0 Flash on EdgeOne Makers.\n' +
+  'You help users with a wide range of tasks including answering questions, writing code, analyzing data, and creative tasks.\n\n' +
+  'Guidelines:\n' +
+  '1. Be helpful, accurate, and concise.\n' +
+  '2. When writing code, use proper formatting and explain your approach.\n' +
+  '3. If you are unsure about something, say so honestly.\n' +
+  '4. Respond in the same language the user uses.\n';
 
 export async function onRequest(context: any) {
   const body = context.request.body ?? {};
@@ -159,13 +49,11 @@ export async function onRequest(context: any) {
   const signal: AbortSignal | undefined = context.request.signal;
   const conversationId: string = context.conversation_id ?? '';
   const { store } = context;
+  const ctxEnv = context.env ?? {};
 
   logger.log(`[request] cid=${conversationId}, uid=${userId ?? '-'}, message="${message.slice(0, 50)}..."`);
 
-  // EdgeOne store returns a Claude SDK-compatible SessionStore for transcript persistence.
-  const claudeSessionStore = store.claudeSessionStore();
-
-  // Save user message to store (with frontend-generated ID for history alignment)
+  // Save user message to store
   if (conversationId) {
     try {
       const appendArgs: Record<string, unknown> = {
@@ -179,33 +67,38 @@ export async function onRequest(context: any) {
     } catch (e) { logger.error('[store] failed to save user message:', e); }
   }
 
-  const { tools } = context;
-  if (typeof tools.toClaudeMcpServer !== 'function') {
-    throw new Error('Upgrade EdgeOne Makers agent runtime: `context.tools.toClaudeMcpServer` is required.');
+  // Resolve Agnes AI configuration
+  const model = resolveModelName(ctxEnv);
+  const baseUrl = resolveBaseUrl(ctxEnv);
+  const apiKey = resolveApiKey(ctxEnv);
+
+  logger.log(`[config] model=${model}, baseUrl=${baseUrl}`);
+
+  // Build conversation history from store for multi-turn support
+  let conversationHistory: Array<{ role: string; content: string }> = [];
+  if (conversationId) {
+    try {
+      const messages = await store.getMessages({ conversationId });
+      if (Array.isArray(messages)) {
+        conversationHistory = messages
+          .filter((m: any) => m.role === 'user' || m.role === 'assistant')
+          .map((m: any) => ({
+            role: m.role,
+            content: typeof m.content === 'string' ? m.content : String(m.content),
+          }));
+      }
+    } catch (e) {
+      logger.error('[store] failed to load conversation history:', e);
+    }
   }
-  const edgeoneMcp = tools.toClaudeMcpServer();
 
-  const mcpServer = createSdkMcpServer({
-    name: edgeoneMcp.name,
-    tools: edgeoneMcp.tools,
-    alwaysLoad: true,
-  });
-
-  const { allowedTools } = edgeoneMcp;
-  logger.log('[tools] registered EdgeOne MCP tools:', allowedTools);
-
-  const sessionBinding = await resolveClaudeSessionBinding(claudeSessionStore, conversationId, process.cwd());
-  const options = buildAgentOptions({
-    claudeSessionStore,
-    mcpServer,
-    mcpServerName: edgeoneMcp.name,
-    allowedTools,
-    env: context.env,
-    ...sessionBinding,
-  });
   const stream = createChatStream({
     message,
-    options,
+    model,
+    baseUrl,
+    apiKey,
+    systemPrompt: SYSTEM_PROMPT,
+    conversationHistory,
     signal,
     logger,
     conversationId,
