@@ -74,6 +74,15 @@ export async function onRequest(context: any) {
 
   logger.log(`[config] model=${model}, baseUrl=${baseUrl}`);
 
+  // Validate API key is present
+  if (!apiKey) {
+    logger.error('[config] AGNES_API_KEY is not configured');
+    return new Response(
+      JSON.stringify({ error: 'AGNES_API_KEY is not configured. Please set it in EdgeOne Makers environment variables.' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+
   // Build conversation history from store for multi-turn support
   let conversationHistory: Array<{ role: string; content: string }> = [];
   if (conversationId) {

@@ -89,7 +89,7 @@ export function createChatStream({
         // Add the current user message
         messages.push({ role: 'user', content: message });
 
-        logger.log(`[stream] sending request to Agnes AI, model=${model}, messages=${messages.length}`);
+        logger.log(`[stream] sending request to Agnes AI, model=${model}, baseUrl=${baseUrl}, messages=${messages.length}`);
 
         // Call Agnes AI OpenAI-compatible API with streaming
         const abortController = new AbortController();
@@ -99,17 +99,21 @@ export function createChatStream({
           signal?.addEventListener('abort', () => abortController.abort(), { once: true });
         }
 
+        const requestBody = {
+          model,
+          messages,
+          stream: true,
+        };
+
+        logger.log(`[stream] request body: ${JSON.stringify({ ...requestBody, messages: `[${messages.length} messages]` })}`);
+
         const response = await fetch(`${baseUrl}/chat/completions`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${apiKey}`,
           },
-          body: JSON.stringify({
-            model,
-            messages,
-            stream: true,
-          }),
+          body: JSON.stringify(requestBody),
           signal: abortController.signal,
         });
 
@@ -137,6 +141,7 @@ export function createChatStream({
 
         const decoder = new TextDecoder();
         let buffer = '';
+        let chunkCount = 0;
 
         while (true) {
           if (signal?.aborted) { stopped = true; break; }
@@ -146,8 +151,14 @@ export function createChatStream({
 
           buffer += decoder.decode(value, { stream: true });
 
-          // SSE format: events separated by \n\n
-          const parts = buffer.split('\n\n');
+          // SSE format: Agnes AI uses single \n between events, standard SSE uses \n\n
+          // Split by \n\n first (standard), then fallback to \n for Agnes format
+          let parts: string[];
+          if (buffer.includes('\n\n')) {
+            parts = buffer.split('\n\n');
+          } else {
+            parts = buffer.split('\n');
+          }
           buffer = parts.pop() || '';
 
           for (const part of parts) {
@@ -170,6 +181,7 @@ export function createChatStream({
             try {
               const parsed = JSON.parse(data);
               const delta = parsed.choices?.[0]?.delta;
+              chunkCount++;
 
               if (delta?.content) {
                 const textDelta = delta.content;
@@ -189,7 +201,7 @@ export function createChatStream({
               // Check for finish reason
               const finishReason = parsed.choices?.[0]?.finish_reason;
               if (finishReason === 'stop' || finishReason === 'end_turn') {
-                logger.log(`[stream] finish_reason=${finishReason}`);
+                logger.log(`[stream] finish_reason=${finishReason}, total chunks=${chunkCount}`);
               }
             } catch {
               // Parse failure, skip this chunk
@@ -197,6 +209,8 @@ export function createChatStream({
             }
           }
         }
+
+        logger.log(`[stream] completed, total chunks=${chunkCount}, text length=${fullAssistantText.length}`);
       } catch (e: unknown) {
         const error = e as Error;
         if (error.name === 'AbortError' || signal?.aborted) {
