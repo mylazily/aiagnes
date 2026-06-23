@@ -49,7 +49,7 @@ export async function onRequest(context: any) {
   const signal: AbortSignal | undefined = context.request.signal;
   const conversationId: string = context.conversation_id ?? '';
   const { store } = context;
-  const ctxEnv = context.env ?? {};
+  const ctxEnv = context.env ?? process.env ?? {};
 
   logger.log(`[request] cid=${conversationId}, uid=${userId ?? '-'}, message="${message.slice(0, 50)}..."`);
 
